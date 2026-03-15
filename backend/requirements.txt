@@ -1,0 +1,16 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+sqlalchemy==2.0.29
+asyncpg==0.29.0
+alembic==1.13.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+pydantic[email]==2.6.4
+pydantic-settings==2.2.1
+influxdb-client[async]==1.41.0
+redis==5.0.3
+APScheduler==3.10.4
+python-multipart==0.0.9
+pycryptodome>=3.20.0
+greenlet>=3.0.0
