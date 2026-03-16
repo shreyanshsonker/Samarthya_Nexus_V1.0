@@ -5,12 +5,23 @@ from app.services.inverter import get_inverter_service
 from app.services.data_pipeline import data_pipeline
 from app.db.influxdb_client import influx_db
 from app.services.cache_service import cache_service
+from app.services.ml.ml_service import ml_service
 
 logger = logging.getLogger(__name__)
 
 class PollingScheduler:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
+
+    async def train_ml_models(self):
+        """
+        Triggered every 4 hours by the scheduler.
+        """
+        try:
+            logger.info("Starting scheduled ML training job...")
+            await ml_service.trigger_training()
+        except Exception as e:
+            logger.error(f"Error during scheduled ML training: {e}")
         
     async def poll_inverter_data(self):
         """
@@ -58,6 +69,14 @@ class PollingScheduler:
             'interval', 
             minutes=5, 
             id='inverter_poll'
+        )
+
+        # Train ML models every 4 hours (240 minutes)
+        self.scheduler.add_job(
+            self.train_ml_models,
+            'interval',
+            minutes=240,
+            id='ml_training'
         )
         self.scheduler.start()
         logger.info("Polling Scheduler started.")

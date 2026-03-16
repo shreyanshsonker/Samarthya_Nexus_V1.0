@@ -7,6 +7,9 @@ from app.services.auth_service import create_user, authenticate_user, create_hou
 from app.utils.security import create_access_token, create_refresh_token
 from jose import jwt, JWTError
 from app.config import settings
+import uuid
+from sqlalchemy import select
+from app.models.database import UserAccount
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -19,12 +22,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
-    except JWTError:
+        user_id = uuid.UUID(user_id_str)
+    except (JWTError, ValueError):
         raise credentials_exception
-    return {"user_id": user_id}
+    
+    result = await db.execute(select(UserAccount).where(UserAccount.user_id == user_id))
+    user = result.scalars().first()
+    if user is None:
+        raise credentials_exception
+    return user
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):

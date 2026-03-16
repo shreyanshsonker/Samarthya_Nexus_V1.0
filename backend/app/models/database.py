@@ -20,6 +20,7 @@ class Household(Base):
     users = relationship("UserAccount", back_populates="household")
     inverters = relationship("InverterDevice", back_populates="household")
     energy_reports = relationship("EnergyReport", back_populates="household")
+    recommendations = relationship("Recommendation", back_populates="household")
 
 class UserAccount(Base):
     __tablename__ = "user_accounts"
@@ -61,3 +62,17 @@ class EnergyReport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     household = relationship("Household", back_populates="energy_reports")
+
+class Recommendation(Base):
+    __tablename__ = "recommendations"
+
+    rec_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    household_id = Column(UUID(as_uuid=True), ForeignKey("households.household_id"), nullable=False)
+    category = Column(String, nullable=False) # load_shifting, efficiency, optimization
+    message = Column(String, nullable=False)
+    saving_kg = Column(Float, default=0.0)
+    confidence = Column(Float, default=1.0)
+    followed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    household = relationship("Household", back_populates="recommendations")

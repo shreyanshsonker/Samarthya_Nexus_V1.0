@@ -1,98 +1,111 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { Colors, Spacing } from '@/constants/theme';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { ThemedText } from '@/components/themed-text';
+import { EnergyGauge } from '@/components/EnergyGauge';
+import { CarbonStatsCard } from '@/components/CarbonStatsCard';
+import { ForecastGraph } from '@/components/ForecastGraph';
+import { useEnergyStore, useForecastStore } from '@/hooks/use-stores';
+import { api } from '@/hooks/use-api';
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
+  const { solar_kw, setReading } = useEnergyStore();
+  const { forecast, greenWindow, setForecast, setGreenWindow } = useForecastStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      // 1. Live Energy
+      const energyRes = await api.energy.getCurrent();
+      setReading(energyRes.data);
+
+      // 2. Forecasts
+      const forecastRes = await api.forecast.getSolar();
+      setForecast(forecastRes.data);
+
+      // 3. Green Window
+      const gwRes = await api.forecast.getGreenWindow();
+      setGreenWindow(gwRes.data);
+    } catch (error) {
+      console.error("Dashboard fetch error:", error);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+    // Poll energy every 30s
+    const interval = setInterval(() => {
+      api.energy.getCurrent().then(res => setReading(res.data));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
+    <ScrollView 
+      style={styles.container} 
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <ThemedView style={styles.header}>
+        <ThemedText type="title">Nexus Dashboard</ThemedText>
+        <ThemedText style={{ color: Colors.dark.textSecondary, fontSize: 14 }}>
+          Gwalior, India
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <EnergyGauge 
+        value={solar_kw} 
+        max={5.0} 
+        label="Current Generation" 
+      />
+
+      <CarbonStatsCard 
+        savingsKg={12.45} // Demo aggregate
+        treesEquiv={0.8}
+      />
+
+      {forecast.length > 0 && (
+        <ForecastGraph data={forecast} />
+      )}
+
+      {greenWindow && greenWindow.window && (
+        <ThemedView style={styles.gwBanner}>
+          <ThemedText type="subtitle">Next Green Window</ThemedText>
+          <ThemedText style={{ marginTop: 4, color: '#fff' }}>
+            {new Date(greenWindow.window.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
+            {" - "}
+            {new Date(greenWindow.window.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </ThemedText>
+        </ThemedView>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  header: {
+    padding: Spacing.xl,
+    paddingTop: 60,
+    backgroundColor: 'transparent',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  gwBanner: {
+    margin: Spacing.l,
+    padding: Spacing.xl,
+    backgroundColor: '#1E1E2E',
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.dark.primary,
+  }
 });

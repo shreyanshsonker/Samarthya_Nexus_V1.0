@@ -1,8 +1,10 @@
 from app.utils.constants import GRID_INTENSITY_MP_FALLBACK, TREE_DAILY_ABSORPTION
 from app.utils.http_client import http_client
 from app.config import settings
-from typing import Dict, Any
+from app.db.influxdb_client import influx_db
+from typing import Dict, Any, List
 import logging
+from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,73 @@ class CarbonService:
             "trees_equiv": trees,
             "grid_intensity": intensity
         }
+
+    async def get_daily_summary(self, household_id: str) -> Dict[str, Any]:
+        """
+        Aggregate energy and carbon for the last 24 hours.
+        """
+        query = f'''
+        from(bucket: "{influx_db.bucket}")
+          |> range(start: -24h)
+          |> filter(fn: (r) => r["_measurement"] == "energy_readings")
+          |> filter(fn: (r) => r["household_id"] == "{household_id}")
+          |> aggregateWindow(every: 24h, fn: sum, createEmpty: false)
+        '''
+        
+        # Note: In a real system, we'd use flux to calculate kWh (sum * 0.25).
+        # For simplicity in this MVP logic:
+        try:
+            tables = await influx_db.query_api.query(query)
+            data = {"solar_kwh": 0.0, "consumption_kwh": 0.0, "saved_kg": 0.0}
+            
+            for table in tables:
+                for record in table.records:
+                    field = record.get_field()
+                    val = record.get_value() * 0.25 # 15-min to kWh
+                    if field == "solar_kw":
+                        data["solar_kwh"] = round(val, 2)
+                    elif field == "consumption_kw":
+                        data["consumption_kwh"] = round(val, 2)
+            
+            data["saved_kg"] = round(data["solar_kwh"] * self.fallback_intensity, 2)
+            data["trees"] = round(data["saved_kg"] / self.tree_absorption, 2)
+            return data
+        except Exception as e:
+            logger.error(f"Daily summary query failed: {e}")
+            return {"solar_kwh": 0.0, "consumption_kwh": 0.0, "saved_kg": 0.0, "trees": 0.0}
+
+    async def get_weekly_summary(self, household_id: str) -> List[Dict[str, Any]]:
+        """
+        Aggregate energy and carbon for the last 7 days.
+        """
+        query = f'''
+        from(bucket: "{influx_db.bucket}")
+          |> range(start: -7d)
+          |> filter(fn: (r) => r["_measurement"] == "energy_readings")
+          |> filter(fn: (r) => r["household_id"] == "{household_id}")
+          |> aggregateWindow(every: 1d, fn: sum, createEmpty: false)
+        '''
+        
+        try:
+            tables = await influx_db.query_api.query(query)
+            # Organise by date
+            records_by_day = {}
+            for table in tables:
+                for record in table.records:
+                    date_str = record.get_time().date().isoformat()
+                    if date_str not in records_by_day:
+                        records_by_day[date_str] = {"date": date_str, "solar_kwh": 0.0, "saved_kg": 0.0}
+                    
+                    field = record.get_field()
+                    val = record.get_value() * 0.25
+                    if field == "solar_kw":
+                        records_by_day[date_str]["solar_kwh"] = round(val, 2)
+                        records_by_day[date_str]["saved_kg"] = round(val * self.fallback_intensity, 2)
+            
+            return sorted(records_by_day.values(), key=lambda x: x["date"])
+        except Exception as e:
+            logger.error(f"Weekly summary query failed: {e}")
+            return []
 
 carbon_service = CarbonService()
 

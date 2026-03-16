@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     SMA_SECRET: str = ""
     ELECTRICITY_MAPS_TOKEN: str = ""
 
+    # ML Pipeline settings
+    ML_MODELS_DIR: str = "models"
+    ML_TRAINING_INTERVAL_HOURS: int = 4
+    ML_FORECAST_CACHE_TTL_HOURS: int = 4
+    ML_MAE_WARN_THRESHOLD: float = 0.6
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

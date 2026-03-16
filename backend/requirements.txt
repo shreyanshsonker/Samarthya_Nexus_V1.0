@@ -14,3 +14,9 @@ APScheduler==3.10.4
 python-multipart==0.0.9
 pycryptodome>=3.20.0
 greenlet>=3.0.0
+numpy>=1.26.0
+pandas>=2.2.0
+statsmodels>=0.14.0
+tensorflow>=2.16.0
+scikit-learn>=1.4.0
+shap>=0.45.0
