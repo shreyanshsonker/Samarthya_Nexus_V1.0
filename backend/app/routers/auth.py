@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.postgres import get_db
 from app.models.schemas import UserCreate, UserResponse, Token, HouseholdCreate
 from app.services.auth_service import create_user, authenticate_user, create_household
-from app.utils.security import create_access_token, create_refresh_token
 from jose import jwt, JWTError
 from app.config import settings
 import uuid
@@ -53,5 +52,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     return await authenticate_user(db, form_data.username, form_data.password)
 
 @router.get("/verify")
-async def verify(current_user: dict = Depends(get_current_user)):
-    return {"valid": True, "user_id": current_user["user_id"]}
+async def verify(current_user: UserAccount = Depends(get_current_user)):
+    """
+    Simple token validation endpoint.
+    Returns a boolean flag and the authenticated user's ID.
+    """
+    return {"valid": True, "user_id": str(current_user.user_id)}

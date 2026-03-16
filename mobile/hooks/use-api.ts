@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { useAuthStore } from './use-stores';
 
-const API_BASE_URL = 'http://localhost:8000'; // Default dev URL
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8000'; // Default dev URL
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    Accept: 'application/json',
   },
 });
 
@@ -24,7 +25,10 @@ apiClient.interceptors.request.use(
 
 export const api = {
   auth: {
-    login: (credentials: any) => apiClient.post('/auth/login', credentials),
+    login: (credentials: FormData) =>
+      apiClient.post('/auth/login', credentials, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }),
     register: (userData: any) => apiClient.post('/auth/register', userData),
     verify: () => apiClient.get('/auth/verify'),
   },

@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, UIButton, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors, Spacing, Border, Typography } from '@/constants/theme';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -72,8 +80,6 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-import { TouchableOpacity } from 'react-native';
 
 const styles = StyleSheet.create({
   container: {
